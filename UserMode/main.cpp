@@ -1,8 +1,17 @@
 #include "UM-Memory.h"
 #include "GameSDK.h"
 #include "globalFunctions.h"
+#include "RenderGraphics.h"
 Memory* mem = nullptr;
 UINT64 StringAddress = 0;
+
+//radar
+
+
+
+
+
+
 //TARKOV
 auto gameData = EFTData::Instance();
 void gameLoop() {
@@ -14,9 +23,25 @@ void gameLoop() {
 		if (!gameData->Read())
 			gameData->InitOffsets();
 
-		gameData->Read();
-		gameData->loopThroughList();
+		gameData->Read();	//setsup players
+		gameData->loopThroughList();	//setsup loot
+		
+		//check if player count == new player count
+		//if not then Read()
+		//if(!gameData->refreshPlayerCount())
+		//	gameData->Read();
 
+		//loop through our player list
+			//check if dead
+				//if dead remove from our playerlist?
+			//if not dead
+				//draw location on radar
+
+
+
+
+
+		//this prints the location of loot
 		for (int i = 0; i < selectedItems.size(); i++) {
 			if (gameData->lootDict.find(selectedItems[i]) != gameData->lootDict.end()) {
 			//if selected item has spawned
@@ -35,7 +60,7 @@ void gameLoop() {
 			break;
 		}
 
-		Sleep(60000);
+		Sleep(5000);
 	}
 }
 int main()
@@ -54,10 +79,11 @@ int main()
 
 	if (!base_address)
 	{
+		Radar myRadar = Radar::Radar(1280, 720);
+		myRadar.drawWindowTesting();
 		printf("GOD MOTHAFUCKIN DAAAAAAAAAAAMN");
 		Sleep(5000);
 	}
-	else
 	{
 		printf("Yes\n");
 		printf("PID: %d\n", process_id);

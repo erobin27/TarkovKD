@@ -197,7 +197,9 @@ enum WildSpawnType : int
 	sectantWarrior = 1048576,
 	sectantPriest = 2097152,
 	bossTagilla = 4194304,
-	followerTagilla = 8388608
+	followerTagilla = 8388608,
+	exUsec = 16777216,
+	gifter = 33554432
 };
 
 class EFTData
@@ -223,6 +225,7 @@ public:
 	bool setupItemIdDict();
 
 	int          playercount;
+	bool		 refreshPlayerCount();
 
 	FVector getPlayerPos(uintptr_t playerProfile);
 	bool setupPlayer(uint64_t playerAddress);

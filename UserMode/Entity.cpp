@@ -2216,6 +2216,23 @@ bool EFTData::UpdatePlayerList() {
 
 }
 
+bool EFTData::refreshPlayerCount() {
+    uint64_t registeredPlayers = mem->Read<uint64_t>(this->offsets.localGameWorld + this->offsets.localGameWorld_offsets.registeredPlayers);
+    if (!registeredPlayers)
+        return false;
+
+    uint64_t list_base = mem->Read<uint64_t>(registeredPlayers + offsetof(EFTStructs::List, listBase));
+    int playerCount = mem->Read<int>(registeredPlayers + offsetof(EFTStructs::List, itemCount));
+
+    if (playerCount == this->playercount) {
+        return true;
+    }
+    else {
+        this->playercount = playerCount;
+        return false;
+    }
+}
+
 FVector EFTData::GetPosition(uint64_t transform)
 {
 	Vector3 pos = mem->Read<Vector3>(transform + 0x90);
@@ -2223,57 +2240,60 @@ FVector EFTData::GetPosition(uint64_t transform)
 }
 
 std::string getBotType(int role) {
-    switch (role) {
-        case 1:
-            return "marksman";
-        case 2:
-            return "assault";
-        case 4:
-            return "bossTest";
-        case 8:
-            return "bossBully";
-        case 16:
-            return "followerTest";
-        case 32:
-            return "followerBully";
-        case 64:
-            return "bossKilla";
-        case 128:
-            return "bossKojaniy";
-        case 256:
-            return "followerKojaniy";
-        case 512:
-            return "pmcBot";
-        case 1024:
-            return "cursedAssault";
-        case 2048:
-            return "bossGluhar";
-        case 4096:
-            return "followerGluharAssault";
-        case 8192:
-            return "followerGluharSecurity";
-        case 16384:
-            return "followerGluharScout";
-        case 32768:
-            return "followerGluharSnipe";
-        case 65536:
-            return "followerSanitar";
-        case 131072:
-            return "bossSanitar";
-        case 262144:
-            return "test";
-        case 524288:
-            return "assaultGroup";
-        case 1048576:
-            return "sectantWarrior";
-        case 2097152:
-            return "sectantPriest";
-        case 4194304:
-            return "bossTagilla";
-        case 8388608:
-            return "followerTagilla";
-        default:
-            return "bot";
+    switch (role)
+    {
+    case WildSpawnType::marksman:
+        return ("Marksman");
+    case WildSpawnType::assault:
+        return ("Assault");
+    case WildSpawnType::bossTest:
+        return ("Boss Test");
+    case WildSpawnType::bossBully:
+        return ("Boss Bully");
+    case WildSpawnType::followerTest:
+        return ("Follower Test");
+    case WildSpawnType::followerBully:
+        return ("Follower Bully");
+    case WildSpawnType::bossKilla:
+        return ("Boss Killa");
+    case WildSpawnType::bossKojaniy:
+        return ("Boss Kojaniy");
+    case WildSpawnType::followerKojaniy:
+        return ("Follower Kojaniy");
+    case WildSpawnType::pmcBot:
+        return ("Pmc");
+    case WildSpawnType::cursedAssault:
+        return ("Cursed Assault");
+    case WildSpawnType::bossGluhar:
+        return ("Boss Gluhar");
+    case WildSpawnType::followerGluharAssault:
+        return ("Follower Gluhar Assault");
+    case WildSpawnType::followerGluharSecurity:
+        return ("Follower Gluhar Security");
+    case WildSpawnType::followerGluharScout:
+        return ("Follower Gluhar Scout");
+    case WildSpawnType::followerGluharSnipe:
+        return ("Follower Gluhar Snipe");
+    case WildSpawnType::followerSanitar:
+        return ("Follower Sanitar");
+    case WildSpawnType::bossSanitar:
+        return ("Boss Sanitar");
+    case WildSpawnType::test:
+        return ("Test");
+    case WildSpawnType::assaultGroup:
+        return ("Assault Group");
+    case WildSpawnType::sectantWarrior:
+        return ("Sectant Warrior");
+    case WildSpawnType::sectantPriest:
+        return ("Sectant Priest");
+    case WildSpawnType::bossTagilla:
+        return ("Boss Tagilla");
+    case WildSpawnType::followerTagilla:
+        return ("Follower Tagilla");
+    case WildSpawnType::exUsec:
+        return ("Ex Usec");
+    default:
+        return("Unknown scav");
     }
 }
 
@@ -2283,7 +2303,50 @@ FVector EFTData::getPlayerPos(uint64_t player) {
 }
 
 bool EFTData::setupPlayer(uint64_t playerAddress) {
+    EFTPlayer player;
+    player.instance = playerAddress;
+    player.position = this->getPlayerPos(player.instance);//currently setting player.position to head position
+    uint64_t playerInfo = mem->ReadChain(player.instance, { this->offsets.Player.profile, this->offsets.profile.information });
+    uint64_t playerName = mem->Read<uint64_t>(playerInfo + this->offsets.information.playerName);
+    int registrationDate = mem->Read<int>(playerInfo + this->offsets.information.registrationDate);
+    int playerSide = mem->Read<int>(playerInfo + this->offsets.information.playerSide);
 
+    if (playerName && registrationDate > 0) //controlled by an actual human
+    {
+        int32_t nameLength = mem->Read<int32_t>(playerName + this->offsets.unicodeString.length);
+        if (nameLength > 128)
+            return false;
+        player.name = wstring_to_string(readWCharString((DWORD64)(playerName + this->offsets.unicodeString.stringBase), (int)nameLength));
+
+        switch (playerSide) {
+        case 1:
+            player.type = "usec";
+            break;
+        case 2:
+            player.type = "bear";
+            break;
+        default:
+            player.type = "player";
+            break;
+        }
+    }
+    else if (playerName) {  //an AI
+        int role = mem->Read<int>(mem->ReadChain(playerInfo, { this->offsets.information.settings, this->offsets.settings.role }));
+        std::cout << "Role:\t" << role << std::endl;
+
+        std::string SpawnType = getBotType(role);
+        player.type = SpawnType;
+    }
+
+    // Leave this at the end to have all the data.
+    if (mem->Read<int>(player.instance + 0x18))
+    {
+        this->localPlayer = player;
+        this->localPlayer.position = player.position;
+    }
+
+    this->players.emplace_back(player);
+    return true;
 }
 
 
@@ -2390,8 +2453,17 @@ FVector EFTData::GetPosition(uint64_t transform)
 	return ret_value;
 }
 */
+
+//sets up players and extracts
 bool EFTData::Read() {
 	std::cout << "--------------IN READ()--------------\n";
+
+    /*
+    * 
+    *          SETUP ALL PLAYERS
+    * 
+    */
+
 	this->players.clear();
 	{
 	uint64_t registeredPlayers = mem->Read<uint64_t>(this->offsets.localGameWorld + this->offsets.localGameWorld_offsets.registeredPlayers);
@@ -2409,56 +2481,18 @@ bool EFTData::Read() {
 	uint64_t player_buffer[BUFFER_SIZE];
 	mem->ReadBuffer(list_base + offsetof(EFTStructs::ListInternal, firstEntry), player_buffer, sizeof(uint64_t) * playerCount);
 
-	EFTPlayer player;
-
 	for (int i = 0; i < playerCount; i++) { //loop through all players... bots, pmc, bosses, etc..
-		player.instance = mem->Read<uint64_t>(list_base + offsetof(EFTStructs::ListInternal, firstEntry) + i * sizeof(uint64_t));
-        player.position = this->getPlayerPos(player.instance);//currently setting player.position to head position
-        uint64_t playerInfo = mem->ReadChain(player.instance, { this->offsets.Player.profile, this->offsets.profile.information});
-        uint64_t playerName = mem->Read<uint64_t>(playerInfo + this->offsets.information.playerName);
-        int registrationDate = mem->Read<int>(playerInfo + this->offsets.information.registrationDate);
-        int playerSide = mem->Read<int>(playerInfo + this->offsets.information.playerSide);
-
-        if (playerName && registrationDate > 0) //controlled by an actual human
-        {
-            int32_t nameLength = mem->Read<int32_t>(playerName + this->offsets.unicodeString.length);
-            if (nameLength > 128)
-                break;
-            player.name = wstring_to_string(readWCharString((DWORD64)(playerName + this->offsets.unicodeString.stringBase), (int)nameLength));
-            
-            switch (playerSide) {
-                case 1:
-                    player.type = "usec";
-                    break;
-                case 2:
-                    player.type = "bear";
-                    break;
-                default:
-                    player.type = "player";
-                    break;
-            }
-
-        }
-        else if (playerName) {  //an AI
-            int role = mem->Read<int>(mem->ReadChain(playerInfo, { this->offsets.information.settings, this->offsets.settings.role }));
-            std::cout << "Role:\t" << role << std::endl;
-            
-            std::string SpawnType = getBotType(role);
-            player.type = SpawnType;
-        }
-
-		// Leave this at the end to have all the data.
-		if(mem->Read<int>(player.instance + 0x18))
-		{
-			this->localPlayer = player;
-			this->localPlayer.position = player.position;
-		}
-
-		this->players.emplace_back(player);
+		this->setupPlayer(mem->Read<uint64_t>(list_base + offsetof(EFTStructs::ListInternal, firstEntry) + i * sizeof(uint64_t)));    
 	}
 
 	}
-	//START EXTRACTS
+	
+    /*
+    *
+    *          SETUP ALL EXTRACTS
+    *
+    */
+
 	this->extracts.clear();
 	{
 	uint64_t exit_controller = mem->Read<uint64_t>(this->offsets.localGameWorld + 0x18);
@@ -2523,33 +2557,40 @@ std::string readStringFromMem(uint64_t stringAddr) {
 
 bool EFTData::loopThroughList() {
 	std::cout << "--------------BEGIN loopThroughList()--------------\n";
-    this->lootDict = {};
-	uint64_t lootListOuter = mem->Read<uint64_t>(this->offsets.localGameWorld + this->offsets.localGameWorld_offsets.lootList);	//0x60
 
+    /*
+    *
+    *          SETUP ALL LOOT
+    *
+    */
+
+    this->lootDict = {};//clear lootdict
+	uint64_t lootListOuter = mem->Read<uint64_t>(this->offsets.localGameWorld + this->offsets.localGameWorld_offsets.lootList);	//0x60
 	int lootCount = mem->Read<uint64_t>(lootListOuter + offsetof(EFTStructs::List, itemCount));
 	uint64_t lootList = mem->Read<uint64_t>(lootListOuter + offsetof(EFTStructs::List, listBase));	//0x10
 
 	constexpr auto BUFFER_SIZE = 2000;
-
 	uint64_t lootBuffer[BUFFER_SIZE];
-
 	ReadBuffer(lootList + offsetof(EFTStructs::ListInternal, firstEntry), lootBuffer, lootCount);//0x20
 
+
+    //Begin looping through all loot
 	EFTLoot loot;
 	std::array<char, 64> name_buffer;
 	for (int i = 0; i < lootCount; i++)
 	{
 		loot.instance = lootBuffer[i];
-		//std::cout << "instance Address: " << std::hex << loot.instance << std::dec << std::endl;
 		uint64_t transform = mem->ReadChain(loot.instance, { 0x10, 0x30, 0x30, 0x8, 0x38 });
 		loot.origin = mem->Read<Vector3>(transform + 0x90);
-		//extract.location = GetPosition(transform);
 		uint64_t lootName = mem->ReadChain(loot.instance, { 0x10, 0x30,0x60 });
 		if (lootName)
 		{
             loot.name = readStringFromMem(lootName);
 			std::string isContainer = readStringFromMem(mem->ReadChain(loot.instance, { 0x0, 0x0, 0x48 }));
-			if (isContainer.compare("LootableContainer") == 0) {
+			
+
+            //Check loot types
+            if (isContainer.compare("LootableContainer") == 0) {
 				//std::cout << "Item is a lootable container" << std::endl;
 			}
 			else if (isContainer.compare("Corpse") == 0) {
@@ -2569,8 +2610,7 @@ bool EFTData::loopThroughList() {
                 }
             }
             
-            								//wstring_to_string(readWCharString((DWORD64)(lootName + this->offsets.unicodeString.stringBase), nameLength));
-            
+            //At to the lootdictionary we are storing
 			if (this->lootDict.count(loot.name) == 0) {
 				std::vector<EFTLoot> lootVec;
 				lootVec.push_back(loot);
@@ -2590,6 +2630,13 @@ bool EFTData::loopThroughList() {
 
 uint64_t EFTData::GetObjectFromList(uint64_t listPtr, uint64_t lastObjectPtr, const char* objectName)
 {
+
+    /*
+    *
+    *          FIND THE GAMEWORLD
+    *
+    */
+
 	using EFTStructs::BaseObject;
 	char name[256];
 	uint64_t classNamePtr = 0x0;
@@ -2603,13 +2650,9 @@ uint64_t EFTData::GetObjectFromList(uint64_t listPtr, uint64_t lastObjectPtr, co
 		{
 			classNamePtr = mem->Read<uint64_t>(activeObject.object + 0x60);
 			//mem->ReadBuffer(classNamePtr + 0x0, &name, sizeof(name));
-			//std::string result = readCharString(classNamePtr + 0x0, sizeof(name));
 			std::string result = readCharString(classNamePtr, 255);
-			//std::cout << "Name:" << result.c_str() << std::endl;
-			//std::cout << "Object Name:" << objectName << skip <<std::endl;
 			if (strcmp(result.c_str(), objectName) == 0)
 			{
-				std::cout << "-----MATCH-----" << std::endl;
 				return activeObject.object;
 			}
 
@@ -2620,11 +2663,8 @@ uint64_t EFTData::GetObjectFromList(uint64_t listPtr, uint64_t lastObjectPtr, co
 	{
 		classNamePtr = mem->Read<uint64_t>(lastObject.object + 0x60);
 		std::string result = readCharString(classNamePtr, 255);
-		//std::cout << "Name:" << result.c_str() << std::endl;
-		//std::cout << "compare: " << strcmp(result.c_str(), objectName);
 		if (strcmp(result.c_str(), objectName) == 0)
 		{
-			std::cout << "-----MATCH-----" << std::endl;
 			return lastObject.object;
 		}
 	}
@@ -2678,17 +2718,6 @@ bool EFTData::open_extract(uint64_t extract)
 	return false;
 }
 
-
-
-
-
-
-void entityLoop() {
-	bool LP_isValid = false;
-
-	DWORD64 GOM = mem->Read<DWORD64>(mem->get_module_base_address("GameAssembly.dll") + EFTOffsets::oGOM);
-
-}
 
 
 /*

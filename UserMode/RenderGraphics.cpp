@@ -1,6 +1,5 @@
 #include "RenderGraphics.h"
 #include <stdio.h>
-#include <string>
 #include <algorithm>
 #include <iostream>
 #include <map>
@@ -32,6 +31,18 @@ GLFWwindow* CreateGLWindow(int windowX, int windowY) {
 	fprintf(stdout, "Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
 
 	return window;
+}
+
+GLTtext* CreateGLText() {
+	if (!gltInit())
+	{
+		fprintf(stderr, "Failed to initialize glText\n");
+		glfwTerminate();
+		return nullptr;
+	}
+
+	GLTtext* text = gltCreateText();
+	return text;
 }
 
 void drawWindow(GLFWwindow* window, std::vector<Vector3> PointsToRender) {
@@ -141,6 +152,18 @@ void Radar::setColor(std::string color) {
 		else if (color.compare("BLUE") == 0) {
 			glColor3f(0.0, 0.0, 1.0);
 		}
+		else if (color.compare("PURPLE") == 0) {
+			glColor3f(0.5, 0.0, 1.0);
+		}
+		else if (color.compare("YELLOW") == 0) {
+			glColor3f(1.0, 1.0, 0.0);
+		}
+		else if (color.compare("ORANGE") == 0) {
+			glColor3f(1.0, 0.5, 0.0);
+		}
+		else if ("WHITE") {
+			glColor3f(1.0, 1.0, 1.0);
+		}
 		else {
 			glColor3f(1.0, 1.0, 1.0);
 		}
@@ -210,9 +233,105 @@ void Radar::drawTriangle(GLfloat x, GLfloat y, float size, std::string color, bo
 	glEnd();
 }
 
+void Radar::drawText(GLfloat x, GLfloat y, float size, std::string type) {
+	gltSetText(this->text, type.c_str());
+	gltBeginDraw();
 
+	// Draw any amount of text between begin and end
+	gltColor(1.0f, 1.0f, 1.0f, 1.0f);
+	gltDrawText2DAligned(text, x, y, size,GLT_CENTER, GLT_BOTTOM);
 
+	// Finish drawing text
+	gltEndDraw();
 
+}
+
+float pixelToPoint(float pixelPoint, int windowSize) {
+	int halfWindow = windowSize / 2;
+	return (pixelPoint - halfWindow) / halfWindow;
+}
+
+float pointToPixel(float point, int windowSize) {
+	int halfWindow = windowSize / 2;
+	return (point * halfWindow + halfWindow);
+}
+
+float pixelDistToPoint(float pixelDist, int windowSize) {
+	return pixelDist/windowSize;
+}
+
+void Radar::drawRect(GLfloat x, GLfloat y, float length, float height, std::string color, float percent, std::string alignment) {
+	setColor(color);
+	float left = x - (length / 2.0);
+	float right = left + length * percent;
+	float top = y + (height / 2.0);
+	float bottom = y - (height / 2.0);
+	glBegin(GL_POLYGON);
+	glVertex3f(left, top,0);
+	glVertex3f(left, bottom,0);
+	glVertex3f(right, bottom,0);
+	glVertex3f(right, top,0);
+	glEnd();
+}
+
+void Radar::drawHealthBar(GLfloat x, GLfloat y,float size, float percent, float yOffset) {
+	std::string color;
+	if (percent > .5) {
+		color = "GREEN";
+	}
+	else if (percent > .2 && percent >= .5) {
+		color = "YELLOW";
+	}
+	else {
+		color = "RED";
+	}
+
+	yOffset = pixelDistToPoint(yOffset, this->windowY);
+	float healthBarYSpacing = (size/this->windowY) + yOffset;
+	float length = (size / this->windowX) * 2;
+	float height = (size / this->windowY) / 5;
+	//drawRect(x, y - healthBarYSpacing, length + yOffset/2, height + yOffset/2, "WHITE");
+
+	drawRect(x, y - healthBarYSpacing, length, height, color, percent);
+}
+
+void Radar::renderBlip(Blip blip) {
+	this->drawFilledCircle(blip.x, blip.y, blip.size, blip.color);
+	//x, y, length, height, color, percent
+	if (blip.health) {
+		this->drawHealthBar(blip.x, blip.y, blip.size, 1.0);
+	}
+}
+
+void Radar::renderBlipName(Blip blip) {
+
+	drawText(pointToPixel(blip.x, this->windowX), pointToPixel(blip.y, this->windowY) - blip.size / 2, .8, blip.name);
+}
+
+void Radar::createPlayerBlips(EFTPlayer player) {
+
+	if (player.name.empty()) {
+		Blip blip = Blip(player.type, pixelToPoint(player.headPos.x, this->windowX), pixelToPoint(player.headPos.y, this->windowY), "ORANGE", 10, 0);
+		blipList.emplace_back(blip);
+	}
+	else {
+		Blip blip = Blip(player.name, pixelToPoint(player.headPos.x, this->windowX), pixelToPoint(player.headPos.y, this->windowY), "RED", 10, 0);
+		blipList.emplace_back(blip);
+	}
+}
+
+void Radar::createLootBlips(EFTLoot loot) {
+	Blip blip = Blip(loot.name, pixelToPoint(loot.origin.x, this->windowX), pixelToPoint(loot.origin.y, this->windowY), "YELLOW", 10, 0);
+	blipList.emplace_back(blip);
+}
+
+void Radar::setRange(int range) {
+	this->range = range;
+}
+
+void Radar::setMiddle(Vector3 middle) {
+	this->middle = middle;
+}
 
 void Radar::drawWindowTesting() {
 	if (glfwWindowShouldClose(this->window)) glfwTerminate();
@@ -232,9 +351,29 @@ void Radar::drawWindowTesting() {
 
 		glPointSize(10);
 
-		drawFilledCircle(0, 0, 50, "BLUE");
+		//drawFilledCircle(pixelToPoint(640, this->windowX), pixelToPoint(360, this->windowY), 50, "BLUE");
+
 		//drawHollowCircle(0, 0, 10, "RED");
-		drawTriangle(.2, 0, 50, "RED", true);
+		//drawTriangle(.2, 0, 50, "RED", true);
+		//Blip blip1 = Blip("BLM-or-DIE", pixelToPoint(640, this->windowX), pixelToPoint(360, this->windowY), "RED", 10, 1);
+		//Blip blip2 = Blip("DonCheadle", pixelToPoint(200, this->windowX), pixelToPoint(360, this->windowY), "RED", 10, 1);
+		//Blip blip3 = Blip("Bitcoin", pixelToPoint(400, this->windowX), pixelToPoint(360, this->windowY), "YELLOW", 10, 0);
+
+		//renderBlip(blip1);
+		//renderBlipName(blip1);
+
+		for (int i = 0; i < this->blipList.size(); i++) {
+			renderBlip(this->blipList[i]);
+		}
+		for (int i = 0; i < this->blipList.size(); i++) {
+			//renderBlipName(this->blipList[i]);
+			break;
+		}
+
+		//gltBeginDraw();
+		//drawText(-.5, 0, 1.0, "Poggers");
+		//drawText(100, 100, 1.0, "Poggers2");
+		//gltEndDraw();
 		/*
 		if (PointsToRender.size() > 0) {
 			for (int i = 0; i < PointsToRender.size(); i++) {

@@ -1,6 +1,9 @@
 #pragma once
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#define GLT_IMPLEMENTATION
+#include "gltext.h"
+#include "GameSDK.h"
 
 // FreeType Headers
 //#include <ft2build.h>
@@ -11,29 +14,63 @@
 #include <string>
 #include "myMath.h"
 
-
 int DrawRadar();
 void closeWindow();
 void drawWindow(GLFWwindow* window, std::vector<Vector3> NearbyPlayersInfo);
 GLFWwindow* CreateGLWindow(int windowX, int windowY);
+GLTtext* CreateGLText();
 void initWindow(GLFWwindow* window);
+
+class Blip{
+public:
+	std::string name;
+	float x;
+	float y;
+	float size;
+	std::string color;
+	float health;
+	Blip(std::string name, float x, float y,std::string color, float size, float health = 0) {
+		this->name =  name;
+		this->x = x;
+		this->y = y;
+		this->size = size;
+		this->color = color;
+		this->health = health;
+	}
+};
 
 class Radar {
 	GLFWwindow* window;
+	GLTtext* text;
 	int windowX;
 	int windowY;
+	int range;
+	Vector3 middle;
+	std::vector<Blip> blipList;
+	//vector<int> RenderList;
 
 	public:
 		Radar(int sizeX, int sizeY) {
 			this->windowX = sizeX;
 			this->windowY = sizeY;
 			this->window = CreateGLWindow(sizeX, sizeY);
+			this->text = CreateGLText();
+			this->range = 200;
 		}
 
+	void setMiddle(Vector3 middle);
+	void setRange(int range);
 	void setColor(std::string color);
 	void drawFilledCircle(GLfloat x, GLfloat y, float size, std::string color);
 	void drawHollowCircle(GLfloat x, GLfloat y, float size, std::string color);
+	void drawText(GLfloat x, GLfloat y, float size, std::string type);
 
+	void renderBlip(Blip blip);
+	void renderBlipName(Blip blip);
+	void createPlayerBlips(EFTPlayer player);
+	void createLootBlips(EFTLoot loot);
+	void drawRect(GLfloat x, GLfloat y, GLfloat length, GLfloat height, std::string color, float percent = 1.0, std::string alignment = "LEFT");
+	void drawHealthBar(GLfloat x, GLfloat y, float size, float percent, float yOffset = 10);
 	void drawTriangle(GLfloat x, GLfloat y, float size, std::string color, bool down=false);
 	void drawWindowTesting();
 	void closeWindow();

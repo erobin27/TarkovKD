@@ -16,6 +16,8 @@ UINT64 StringAddress = 0;
 auto gameData = EFTData::Instance();
 void gameLoop() {
 	getSettings();
+	Radar myRadar = Radar::Radar(1280, 720);
+	myRadar.drawWindowTesting();
 	cout << selectedItems[0];
 	gameData->setupItemIdDict();
 	while (true) {
@@ -37,30 +39,34 @@ void gameLoop() {
 			//if not dead
 				//draw location on radar
 
+		std::cout << "X: " << gameData->players[0].position.x << " Y: " << gameData->players[0].position.y << " Z: " << gameData->players[0].position.z << " Look: " << gameData->players[0].lookAngle << std::endl;
 
+		myRadar.setRange(300);
 
-
+		for (int i = 0; i < gameData->players.size(); i++) {
+			std::cout << gameData->players[i].name << std::endl;
+			myRadar.createPlayerBlips(gameData->players[i]);
+		}
 
 		//this prints the location of loot
 		for (int i = 0; i < selectedItems.size(); i++) {
 			if (gameData->lootDict.find(selectedItems[i]) != gameData->lootDict.end()) {
 			//if selected item has spawned
-				std::vector<EFTLoot> itemVector = gameData->lootDict[selectedItems[i]];
+			std::vector<EFTLoot> itemVector = gameData->lootDict[selectedItems[i]];
 			for (int j = 0; j < itemVector.size(); j++) {
+				myRadar.createLootBlips(itemVector[j]);
 				cout << itemVector[j].name << ": " << itemVector[j].origin.x << ", " << itemVector[j].origin.y << ", " << itemVector[j].origin.z << endl;
 			}
-
-
 			}
-			//std::cout << gameData->lootDict[selectedItems[i]][0].name << ":\t" << gameData->lootDict["Physical bitcoin"][0].origin.x << ", " << gameData->lootDict["Physical bitcoin"][0].origin.y << ", " << gameData->lootDict["Physical bitcoin"][0].origin.z << std::endl;
 		}
 		//render RADAR
+		myRadar.drawWindowTesting();
 
 		if (GetKeyState(VK_END) & 0x8000) {
 			break;
 		}
 
-		Sleep(5000);
+		Sleep(60000);
 	}
 }
 int main()

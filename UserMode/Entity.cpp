@@ -2261,7 +2261,7 @@ std::string getBotType(int role) {
     case WildSpawnType::followerKojaniy:
         return ("Follower Kojaniy");
     case WildSpawnType::pmcBot:
-        return ("Pmc");
+        return ("Raider");
     case WildSpawnType::cursedAssault:
         return ("Cursed Assault");
     case WildSpawnType::bossGluhar:
@@ -2302,15 +2302,20 @@ FVector EFTData::getPlayerPos(uint64_t player) {
     return FVector(HeadPos.x, HeadPos.y, HeadPos.z);;
 }
 
+float EFTData::getPlayerLooking(uint64_t player) {
+    Vector3 looking = mem->Read<Vector3>(player + this->offsets.profile.looking);
+    return looking.y;
+}
+
 bool EFTData::setupPlayer(uint64_t playerAddress) {
     EFTPlayer player;
     player.instance = playerAddress;
     player.position = this->getPlayerPos(player.instance);//currently setting player.position to head position
+    player.lookAngle = this->getPlayerLooking(player.instance);
     uint64_t playerInfo = mem->ReadChain(player.instance, { this->offsets.Player.profile, this->offsets.profile.information });
     uint64_t playerName = mem->Read<uint64_t>(playerInfo + this->offsets.information.playerName);
     int registrationDate = mem->Read<int>(playerInfo + this->offsets.information.registrationDate);
     int playerSide = mem->Read<int>(playerInfo + this->offsets.information.playerSide);
-
     if (playerName && registrationDate > 0) //controlled by an actual human
     {
         int32_t nameLength = mem->Read<int32_t>(playerName + this->offsets.unicodeString.length);
@@ -2331,10 +2336,10 @@ bool EFTData::setupPlayer(uint64_t playerAddress) {
         }
     }
     else if (playerName) {  //an AI
-        int role = mem->Read<int>(mem->ReadChain(playerInfo, { this->offsets.information.settings, this->offsets.settings.role }));
-        std::cout << "Role:\t" << role << std::endl;
-
+        uint64_t settings = mem->Read<uint64_t>(playerInfo + this->offsets.information.settings);
+        int32_t role = mem->Read<int32_t>(settings + this->offsets.settings.role);
         std::string SpawnType = getBotType(role);
+        std::cout << "Type:\t" << SpawnType << std::endl;
         player.type = SpawnType;
     }
 

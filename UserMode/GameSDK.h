@@ -1,6 +1,5 @@
 ﻿#pragma once
 
-#include "Entity.h"
 #include "myMath.h"
 #include <vector>
 #include <list>
@@ -26,6 +25,9 @@
 #define oNickname 0x10
 #define oPlayerSide 0x58
 
+std::string readCharString(DWORD64 address, int length);
+std::wstring readWCharString(DWORD64 address, int length);
+std::string wstring_to_string(const std::wstring& wstr);
 
 struct EFTOffsets
 {
@@ -56,6 +58,7 @@ struct EFTOffsets
 		static constexpr uint64_t information = 0x28; //updated
 		static constexpr uint64_t id = 0x10; //updated
 		static constexpr uint64_t position = 0x640; //updated //Vector3
+		static constexpr uint64_t looking = 0x670; //updated //Vector3
 	} profile;
 
 	struct
@@ -131,6 +134,7 @@ struct EFTPlayer
 	uintptr_t	 instance;
 	FVector		 headPos;
 	FVector		 position;
+	float		 lookAngle;
 	std::string	 name;
 	std::string  type;
 };
@@ -227,7 +231,9 @@ public:
 	int          playercount;
 	bool		 refreshPlayerCount();
 
-	FVector getPlayerPos(uintptr_t playerProfile);
+
+	float getPlayerLooking(uint64_t player);
+	FVector getPlayerPos(uint64_t playerProfile);
 	bool setupPlayer(uint64_t playerAddress);
 
 	bool IsAiming(uint64_t instance);

@@ -239,11 +239,22 @@ void Radar::drawText(GLfloat x, GLfloat y, float size, std::string type) {
 
 	// Draw any amount of text between begin and end
 	gltColor(1.0f, 1.0f, 1.0f, 1.0f);
-	gltDrawText2DAligned(text, x, y, size,GLT_CENTER, GLT_BOTTOM);
+	gltDrawText2DAligned(this->text, x, y, size,GLT_CENTER, GLT_BOTTOM);
 
 	// Finish drawing text
 	gltEndDraw();
 
+}
+
+float lineDistance(Vector2 p1, Vector2 p2) {
+	return sqrt(pow(p1.x - p2.x, 2) + pow(p1.y - p2.y, 2));
+}
+
+Vector2 rotateAboutPoint(Vector2 point, float angle) {
+	Vector2 newPoint;
+	newPoint.x = point.x * cos(angle * (PI / 180)) - point.y * sin(angle * (PI / 180));
+	newPoint.y = point.y * cos(angle * (PI / 180)) + point.x * sin(angle * (PI / 180));
+	return newPoint;
 }
 
 float pixelToPoint(float pixelPoint, int windowSize) {
@@ -295,33 +306,147 @@ void Radar::drawHealthBar(GLfloat x, GLfloat y,float size, float percent, float 
 	drawRect(x, y - healthBarYSpacing, length, height, color, percent);
 }
 
-void Radar::renderBlip(Blip blip) {
-	this->drawFilledCircle(blip.x, blip.y, blip.size, blip.color);
+float  shiftAngle(float angle, float shift) {
+	angle = angle + shift;
+	if (angle < 0) angle = angle + 360;
+	if (angle > 360) angle = angle - 360.0;
+	return angle;
+}
+
+void Radar::drawLineByAngle(GLfloat x, GLfloat y, float angle, float size, std::string color) {
+	size = pixelDistToPoint(size, this->windowX);
+	angle = shiftAngle(angle, 90.0);
+	GLfloat x2 = size * cos(angle * (PI / 180)) + x;
+	GLfloat y2 = size * sin(angle * (PI / 180)) + y;
+	/*
+	std::cout <<
+		"Angle:" << angle <<
+		//"\ncos:" << cos(x) <<
+		//"\nsin:" << sin(y) <<
+		//"\nx:" << x <<
+		//"\ny:" << y <<
+		//"\nx2:" << x2 <<
+		//"\ny2:" << y2 <<
+		//"\nsize:" << size <<
+	std::endl;
+	*/
+
+	setColor(color);
+	glBegin(GL_LINES);
+	glVertex2f(x, y);
+	glVertex2f(-x2, y2);
+	glEnd();
+}
+
+void Radar::renderBlip(Blip blip, bool rotate) { //middle.y needs to be z val
+	//std::cout << "RENDER X: " << (blip.x - this->middle.x) / this->range << " Y: " << (blip.y - this->middle.y) / this->range << std::endl;
+	Vector2 renderPoint;
+	
+	if (rotate) {
+		renderPoint = rotateAboutPoint(
+			Vector2{ blip.x - centerBlip.x, blip.y - centerBlip.y},
+			centerBlip.lookDirection
+		);
+	}
+	else {
+		renderPoint.x = (blip.x - this->centerBlip.x) / this->range;
+		renderPoint.y = (blip.y - this->centerBlip.y) / this->range;
+	}
+	if (blip.z - centerBlip.z > 5) {
+		this->drawTriangle(
+			renderPoint.x,
+			renderPoint.y,
+			blip.size,
+			blip.color);
+	}
+	else if (blip.z - centerBlip.z < -5) {
+		this->drawTriangle(
+			renderPoint.x / this->range,
+			renderPoint.y / this->range,
+			blip.size,
+			blip.color,
+			true);
+	}
+	else {
+		this->drawFilledCircle(
+			renderPoint.x,
+			renderPoint.y,
+			blip.size,
+			blip.color);
+	}
 	//x, y, length, height, color, percent
 	if (blip.health) {
-		this->drawHealthBar(blip.x, blip.y, blip.size, 1.0);
+		this->drawHealthBar(
+			renderPoint.x,
+			renderPoint.y,
+			blip.size,
+			1.0
+		);
+	}
+
+	if (blip.lookDirection) {
+		this->drawLineByAngle(
+			renderPoint.x,
+			renderPoint.y,
+			blip.lookDirection,
+			blip.size * 2,
+			"WHITE");
 	}
 }
 
-void Radar::renderBlipName(Blip blip) {
+bool Radar::renderBlipName(Blip blip, bool rotate) {
+	if (blip.name.compare("Marksman") == 0 || blip.name.compare("Assault") == 0) return false;
 
-	drawText(pointToPixel(blip.x, this->windowX), pointToPixel(blip.y, this->windowY) - blip.size / 2, .8, blip.name);
+	Vector2 renderPoint;
+	if (rotate) {
+		renderPoint = rotateAboutPoint(
+			Vector2{ blip.x - centerBlip.x, blip.y - centerBlip.y },
+			centerBlip.lookDirection
+		);
+	}
+	else {
+		renderPoint.x = (blip.x - this->centerBlip.x) / this->range;
+		renderPoint.y = -(blip.y - this->centerBlip.y) / this->range;
+	}
+
+	drawText(
+		pointToPixel(renderPoint.x, this->windowX),
+		pointToPixel(renderPoint.y - blip.size / this->windowY, this->windowY),
+		.8,
+		blip.name
+	);
+
+	return true;
 }
 
-void Radar::createPlayerBlips(EFTPlayer player) {
+bool Radar::createPlayerBlips(EFTPlayer player, bool isLocal) {
+	if (isLocal) {
+		Blip blip = Blip(player.type, player.position.x, player.position.z, player.position.y, "GREEN", 10, 0,player.lookAngle);
+		this->centerBlip = blip;
+		//std::cout << centerBlip.x << " , " << centerBlip.y << std::endl;
+		blipList.emplace_back(blip);
+		return true;
+	}
+
 
 	if (player.name.empty()) {
-		Blip blip = Blip(player.type, pixelToPoint(player.headPos.x, this->windowX), pixelToPoint(player.headPos.y, this->windowY), "ORANGE", 10, 0);
+		Blip blip = Blip(player.type, player.position.x, player.position.z, player.position.y, "PURPLE", 10, 0);
 		blipList.emplace_back(blip);
 	}
 	else {
-		Blip blip = Blip(player.name, pixelToPoint(player.headPos.x, this->windowX), pixelToPoint(player.headPos.y, this->windowY), "RED", 10, 0);
-		blipList.emplace_back(blip);
+		if (player.name.compare("BigCam_") == 0 || player.name.compare("Isuc") == 0 || player.name.compare("Dizastral") == 0) {
+			Blip blip = Blip(player.name, player.position.x, player.position.z, player.position.y, "GREEN", 10, 0);
+			blipList.emplace_back(blip);
+		}
+		else {
+			Blip blip = Blip(player.name, player.position.x, player.position.z, player.position.y, "RED", 10, 0);
+			blipList.emplace_back(blip);
+		}
 	}
 }
 
 void Radar::createLootBlips(EFTLoot loot) {
-	Blip blip = Blip(loot.name, pixelToPoint(loot.origin.x, this->windowX), pixelToPoint(loot.origin.y, this->windowY), "YELLOW", 10, 0);
+	Blip blip = Blip(loot.name, loot.origin.x, loot.origin.z, loot.origin.y, "YELLOW", 10, 0);
 	blipList.emplace_back(blip);
 }
 
@@ -329,8 +454,31 @@ void Radar::setRange(int range) {
 	this->range = range;
 }
 
-void Radar::setMiddle(Vector3 middle) {
-	this->middle = middle;
+void Radar::clearBlips() {
+	this->blipList.clear();
+}
+
+void Radar::drawBlank() {
+	if (glfwWindowShouldClose(this->window)) glfwTerminate();
+
+
+	//std::cout << "Drawing Blank" << std::endl;
+	drawHollowCircle(0, 0, pointToPixel(.3 * .5, this->windowX), "WHITE");
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	setColor("WHITE");
+	glBegin(GL_LINES);
+	glVertex2f(-1.0f, 0.0f);
+	glVertex2f(1.0f, 0.0f);
+	glVertex2f(0.0f, -1.0f);
+	glVertex2f(0.0f, 1.0f);
+	glEnd();
+
+	/* Swap front and back buffers */
+	glfwSwapBuffers(this->window);
+
+	/* Poll for and process events */
+	glfwPollEvents();
 }
 
 void Radar::drawWindowTesting() {
@@ -342,14 +490,6 @@ void Radar::drawWindowTesting() {
 		//glClearColor(1.0, 1.0, 1.0, 1.0); //background color
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		glBegin(GL_LINES);
-		glVertex2f(-1.0f, 0.0f);
-		glVertex2f(1.0f, 0.0f);
-		glVertex2f(0.0f, -1.0f);
-		glVertex2f(0.0f, 1.0f);
-		glEnd();
-
-		glPointSize(10);
 
 		//drawFilledCircle(pixelToPoint(640, this->windowX), pixelToPoint(360, this->windowY), 50, "BLUE");
 
@@ -362,14 +502,28 @@ void Radar::drawWindowTesting() {
 		//renderBlip(blip1);
 		//renderBlipName(blip1);
 
+		this->text = CreateGLText();
+
+		setColor("WHITE");
+		glBegin(GL_LINES);
+		glVertex2f(-1.0f, 0.0f);
+		glVertex2f(1.0f, 0.0f);
+		glVertex2f(0.0f, -1.0f);
+		glVertex2f(0.0f, 1.0f);
+		glEnd();
+
+		//drawHollowCircle(0,0,pointToPixel(.3 * .5, this->windowX),"WHITE");
+		//drawHollowCircle(0, 0, pointToPixel(1.0 * .5, this->windowX), "WHITE");
+
 		for (int i = 0; i < this->blipList.size(); i++) {
-			renderBlip(this->blipList[i]);
+			renderBlip(this->blipList[i], false);
 		}
 		for (int i = 0; i < this->blipList.size(); i++) {
-			//renderBlipName(this->blipList[i]);
-			break;
+			renderBlipName(this->blipList[i], false);
 		}
 
+		gltDeleteText(this->text);
+		gltTerminate();
 		//gltBeginDraw();
 		//drawText(-.5, 0, 1.0, "Poggers");
 		//drawText(100, 100, 1.0, "Poggers2");

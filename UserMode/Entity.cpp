@@ -1,6 +1,7 @@
 #include "UM-Memory.h"
 #include "GameSDK.h"
 #include "xorstr.hpp"
+#include <Eigen/Geometry>
 
 bool mfound = false;
 
@@ -2126,13 +2127,25 @@ bool EFTData::setupItemIdDict() {
         {"5fbcc1d9016cce60e8341ab3" , "SIG MCX .300 AAC Blackout Assault Rifle"},
         {"5fc22d7c187fea44d52eda44" , "Mk-18 .338 LM marksman rifle"},
         {"5fc3e272f8b6a877a729eac5" , "HK UMP 45 submachinegun"},
-        {"5fc3f2d5900b1d5091531e57" , "TDI Kriss Vector Gen.2 9x19 submachinegun"}
+        {"5fc3f2d5900b1d5091531e57" , "TDI Kriss Vector Gen.2 9x19 submachinegun"},
+        {"59fafd4b86f7745ca07e1232" , "Keytool"},
+        {"59fb023c86f7746d0d4b423c" , "Weapon case"},
+        {"59fb016586f7746d0d4b423a" , "Moneycase"},
+        {"619cbf9e0a7c3a1a2731940a" , "Keycard Holder"},
+        {"5b7c710788a4506dec015957" , "junkbox"},
+        {"5aafbcd986f7745e590fff23" , "medscase"},
+        {"59fb042886f7746c5005a7b2" , "Itemcase"},
+        { "5c127c4486f7745625356c13" , "magbox" },
+        { "5c093e3486f77430cb02e593" , "dogtag" },
+        { "5c093db286f7740a1b2617e3" , "lunchbox" },
+        { "619cbf476b8a1b37a54eebf8" , "MilTube"}
+
     };
     return true;
 }
 
 bool EFTData::InitOffsets() {
-	std::cout << "--------------IN InitOffsets()--------------\n";
+	//std::cout << "--------------IN InitOffsets()--------------\n";
 	/* 
 	* 
 	* 
@@ -2141,9 +2154,9 @@ bool EFTData::InitOffsets() {
 	* 
 	*/
 	this->offsets.gameObjectManager = mem->Read<DWORD64>(mem->get_module_base_address("UnityPlayer.dll") + this->offsets.oGOM);
-	std::cout <<  "UnityPlayer.dll: " << std::hex << mem->get_module_base_address("UnityPlayer.dll") << std::dec << std::endl;
-	std::cout << this->offsets.oGOM << std::endl;
-	std::cout << "GOM:" << std::hex << this->offsets.gameObjectManager << std::dec << std::endl;
+	//std::cout <<  "UnityPlayer.dll: " << std::hex << mem->get_module_base_address("UnityPlayer.dll") << std::dec << std::endl;
+	//std::cout << this->offsets.oGOM << std::endl;
+	//std::cout << "GOM:" << std::hex << this->offsets.gameObjectManager << std::dec << std::endl;
 
 	/*
 	* 
@@ -2153,7 +2166,7 @@ bool EFTData::InitOffsets() {
 	* 
 	*/
 	auto active_objects = mem->Read<std::array<uint64_t, 2>>(this->offsets.gameObjectManager + offsetof(EFTStructs::GameObjectManager, lastActiveObject));
-	std::cout << "GOM + " << std::hex << offsetof(EFTStructs::GameObjectManager, lastActiveObject) << std::dec << std::endl;
+	//std::cout << "GOM + " << std::hex << offsetof(EFTStructs::GameObjectManager, lastActiveObject) << std::dec << std::endl;
 	
 	uint64_t activeObjList = mem->Read<uint64_t>(this->offsets.gameObjectManager + offsetof(EFTStructs::GameObjectManager, activeObjects));
 	uint64_t lastActiveObj = mem->Read<uint64_t>(this->offsets.gameObjectManager + offsetof(EFTStructs::GameObjectManager, lastActiveObject));
@@ -2163,7 +2176,7 @@ bool EFTData::InitOffsets() {
 		return false;
 
 
-	std::cout << "--------------SEARCHING FOR GAMEWORLD--------------\n";
+	//std::cout << "--------------SEARCHING FOR GAMEWORLD--------------\n";
 	//find correct gameworld
 	{
 		int playerCount = 0;
@@ -2172,15 +2185,15 @@ bool EFTData::InitOffsets() {
 				return false;
 																						//Change 78 and 18.. RegisteredPlayers & PlayerCount
 			playerCount = (int)mem->ReadChain(this->offsets.gameWorld, { 0x30, 0x18, 0x28, 0x80, 0x18 });
-			std::cout << "Players: " << playerCount << std::endl;
+			//std::cout << "Players: " << playerCount << std::endl;
 		}
 	}
-	std::cout << "GameWorld: "<< std::hex <<this->offsets.gameWorld << std::dec << std::endl;
+	//std::cout << "GameWorld: "<< std::hex <<this->offsets.gameWorld << std::dec << std::endl;
 	//Set Local gameworld after finding GameWorld
 	this->offsets.localGameWorld = mem->ReadChain(this->offsets.gameWorld, { 0x30, 0x18, 0x28 });
-	std::cout << "LocalGameWorld: " << std::hex << this->offsets.localGameWorld << std::dec << std::endl;
+	//std::cout << "LocalGameWorld: " << std::hex << this->offsets.localGameWorld << std::dec << std::endl;
 
-	std::cout << "--------------FOUND GAME WORLD--------------\n";
+	//std::cout << "--------------FOUND GAME WORLD--------------\n";
 
 	/*
 	*
@@ -2206,7 +2219,7 @@ bool EFTData::InitOffsets() {
 		return false;
 	*/
 
-	std::cout << "--------------END InitOffsets()--------------\n";
+	//std::cout << "--------------END InitOffsets()--------------\n";
 	return true;
 
 }
@@ -2233,10 +2246,25 @@ bool EFTData::refreshPlayerCount() {
     }
 }
 
-FVector EFTData::GetPosition(uint64_t transform)
+FVector EFTData::GetPosition(uint64_t posAddr)
 {
-	Vector3 pos = mem->Read<Vector3>(transform + 0x90);
-	return FVector(pos.x, pos.z, pos.y);
+	Vector3 pos = mem->Read<Vector3>(posAddr);
+	return FVector(pos.x, pos.y, pos.z);
+}
+
+//may need to comeback and rotate this angle
+float EFTData::GetLookingAngle(uint64_t player)
+{
+    uint64_t mContext = mem->Read<uint64_t>(player + this->offsets.Player.movementContext);
+    Vector2 angles = mem->Read<Vector2>(mContext + this->offsets.movement.direction); //(+/- 360 , +/- 1)
+    float angle = angles.x; /// +/- 360
+
+    if (angle < 0) {
+        angle = 360 + angle;
+    }
+
+    //std::cout << angle << std::endl;
+    return angle;
 }
 
 std::string getBotType(int role) {
@@ -2297,25 +2325,36 @@ std::string getBotType(int role) {
     }
 }
 
-FVector EFTData::getPlayerPos(uint64_t player) {
-    Vector3 HeadPos = mem->Read<Vector3>(player + this->offsets.profile.position);
-    return FVector(HeadPos.x, HeadPos.y, HeadPos.z);;
-}
+FVector EFTData::getBonePos(uint64_t player,int boneId) {
 
-float EFTData::getPlayerLooking(uint64_t player) {
-    Vector3 looking = mem->Read<Vector3>(player + this->offsets.profile.looking);
-    return looking.y;
+    uint64_t playerBody = mem->Read<uint64_t>(player + this->offsets.Player.playerBody);
+    uint64_t skeleton = mem->Read<uint64_t>(playerBody + this->offsets.Playerbody.SkeletonRootJoint);
+    uint64_t values = mem->Read<uint64_t>(skeleton + this->offsets.Skeleton.values);
+    uint64_t BoneList = mem->Read<uint64_t>(values + offsetof(EFTStructs::List, listBase)) + offsetof(EFTStructs::ListInternal, firstEntry); //Listbase then first entry 0x10] + 0x20
+    uint64_t bone = mem->Read<uint64_t>(BoneList + 0x8 * boneId);
+    uint64_t boneTransform = mem->ReadChain(bone, { 0x10,0x38 });   //idk where these offsets come from
+    Vector3  boneCords = mem->Read<Vector3>(boneTransform + transformPos);
+
+    //std::cout << boneCords.x << " , " << boneCords.y << std::endl;
+    return FVector(boneCords.x, boneCords.y, boneCords.z);
 }
 
 bool EFTData::setupPlayer(uint64_t playerAddress) {
     EFTPlayer player;
     player.instance = playerAddress;
-    player.position = this->getPlayerPos(player.instance);//currently setting player.position to head position
-    player.lookAngle = this->getPlayerLooking(player.instance);
-    uint64_t playerInfo = mem->ReadChain(player.instance, { this->offsets.Player.profile, this->offsets.profile.information });
+
+
+    uint64_t playerProfile = mem->Read<uint64_t>(playerAddress + this->offsets.Player.profile);
+    uint64_t playerInfo = mem->Read<uint64_t>(playerProfile + this->offsets.profile.information);
     uint64_t playerName = mem->Read<uint64_t>(playerInfo + this->offsets.information.playerName);
+
+
     int registrationDate = mem->Read<int>(playerInfo + this->offsets.information.registrationDate);
     int playerSide = mem->Read<int>(playerInfo + this->offsets.information.playerSide);
+
+    player.position = this->GetPosition(player.instance + this->offsets.Player.position);
+    player.headPos  = this->getBonePos(player.instance, Bones::HumanBase);//currently setting player.position to head position
+
     if (playerName && registrationDate > 0) //controlled by an actual human
     {
         int32_t nameLength = mem->Read<int32_t>(playerName + this->offsets.unicodeString.length);
@@ -2339,18 +2378,25 @@ bool EFTData::setupPlayer(uint64_t playerAddress) {
         uint64_t settings = mem->Read<uint64_t>(playerInfo + this->offsets.information.settings);
         int32_t role = mem->Read<int32_t>(settings + this->offsets.settings.role);
         std::string SpawnType = getBotType(role);
-        std::cout << "Type:\t" << SpawnType << std::endl;
+        //std::cout << "Type:\t" << SpawnType << std::endl;
         player.type = SpawnType;
     }
 
     // Leave this at the end to have all the data.
     if (mem->Read<int>(player.instance + 0x18))
     {
+        std::cout << player.position.x << " " << player.position.y << " " << player.position.z << std::endl;
+        std::cout << player.headPos.x << " " << player.headPos.y << " " << player.headPos.z << "\n\n\n" << std::endl;
+
+        //player.lookAngle = this->GetLookingAngle(mem->Read<Vector4>(player.instance + this->offsets.Player.looking));
+        //std::cout << player.name << std::endl;
+        player.lookAngle = this->GetLookingAngle(player.instance);
         this->localPlayer = player;
         this->localPlayer.position = player.position;
     }
-
-    this->players.emplace_back(player);
+    else {
+        this->players.emplace_back(player);
+    }
     return true;
 }
 
@@ -2461,7 +2507,7 @@ FVector EFTData::GetPosition(uint64_t transform)
 
 //sets up players and extracts
 bool EFTData::Read() {
-	std::cout << "--------------IN READ()--------------\n";
+	//std::cout << "--------------IN READ()--------------\n";
 
     /*
     * 
@@ -2479,7 +2525,7 @@ bool EFTData::Read() {
 	int playerCount = mem->Read<int>(registeredPlayers + offsetof(EFTStructs::List, itemCount));
 	if (playerCount <= 0 || !list_base)
 		return false;
-	std::cout << "PlayerCount: " << playerCount << std::endl;
+	//std::cout << "PlayerCount: " << playerCount << std::endl;
 
 	constexpr auto BUFFER_SIZE = 128;
 
@@ -2533,7 +2579,7 @@ bool EFTData::Read() {
 		{
 			int32_t nameLength = mem->Read<int32_t>(extract_name + this->offsets.unicodeString.length);
 			extract.name = wstring_to_string(readWCharString((DWORD64)(extract_name + this->offsets.unicodeString.stringBase), (int)nameLength));
-			std::cout << extract.name << std::endl;
+			//std::cout << extract.name << std::endl;
 		}
 
 		this->extracts.emplace_back(extract);
@@ -2541,7 +2587,7 @@ bool EFTData::Read() {
 	}
 	}
 	
-	std::cout << "--------------END READ()--------------\n";
+	//std::cout << "--------------END READ()--------------\n";
 }
 
 std::string findItemID(uint64_t itemInstance) {
@@ -2561,7 +2607,7 @@ std::string readStringFromMem(uint64_t stringAddr) {
 }
 
 bool EFTData::loopThroughList() {
-	std::cout << "--------------BEGIN loopThroughList()--------------\n";
+	//std::cout << "--------------BEGIN loopThroughList()--------------\n";
 
     /*
     *
@@ -2629,7 +2675,7 @@ bool EFTData::loopThroughList() {
 		this->loots.emplace_back(loot);
 
 	}
-    std::cout << "-----------------------------END LOOTLOOP---------------------\n\n\n\n";
+    //std::cout << "-----------------------------END LOOTLOOP---------------------\n\n\n\n";
 	return true;
 }
 

@@ -2,6 +2,7 @@
 // Libraries
 #include <math.h>
 #include <assert.h>
+
 # define PI           3.14159265358979323846 
 
 class FVector;
@@ -168,7 +169,7 @@ public:
 class Vector4
 {
 public:
-    float x, z, y;
+    float x, z, y, w;
 
     Vector4();
     Vector4(float x, float y, float z, float w);
@@ -184,7 +185,6 @@ public:
 
 private:
 
-    float w;
 
     // only to allow do that: m(0) = Vector4(1,1,1,1) //
     float* px;

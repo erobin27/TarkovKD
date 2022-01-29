@@ -46,7 +46,7 @@ bool getSettings() {
 		return false;
 	}
 	while (getline(in, myText)) { //read the lines
-		if (left(myText, ':').compare("X") == 0) {
+		if (left(myText, ':').compare("#") == 0) {
 			selectedItems.emplace_back(right(myText, ':'));
 		}
 	}

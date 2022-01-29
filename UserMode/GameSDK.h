@@ -25,6 +25,8 @@
 #define oNickname 0x10
 #define oPlayerSide 0x58
 
+#define transformPos 0x90
+
 std::string readCharString(DWORD64 address, int length);
 std::wstring readWCharString(DWORD64 address, int length);
 std::string wstring_to_string(const std::wstring& wstr);
@@ -57,8 +59,6 @@ struct EFTOffsets
 	{
 		static constexpr uint64_t information = 0x28; //updated
 		static constexpr uint64_t id = 0x10; //updated
-		static constexpr uint64_t position = 0x640; //updated //Vector3
-		static constexpr uint64_t looking = 0x670; //updated //Vector3
 	} profile;
 
 	struct
@@ -85,13 +85,30 @@ struct EFTOffsets
 	struct
 	{
 		static constexpr uint64_t m_pPlayerProfile = 0x4B8;	//idk
-		static constexpr uint64_t movementContext = 0x38;	//idk
+		static constexpr uint64_t movementContext = 0x40;	//idk
 		static constexpr uint64_t proceduralWeaponAnimation = 0x70; //updayed 1/11/2022
 		static constexpr uint64_t playerBody = 0xa8; //updated 1/11/2022
 		static constexpr uint64_t m_pHealthController = 0x4f0; //updated 1/11/2022
 		static constexpr uint64_t profile = 0x4B8; //updayed 1/11/2022
+		static constexpr uint64_t position = 0x640; //updated //Vector3
+		static constexpr uint64_t looking = 0x670; //updated //quaternion /vec4
 
 	} Player;
+	
+	struct
+	{
+		static constexpr uint64_t SkeletonRootJoint = 0x28; //updated 1/11/2022
+	} Playerbody;
+
+	struct
+	{
+		static constexpr uint64_t values = 0x28; //updated 1/11/2022
+	} Skeleton;
+
+	struct
+	{
+		static constexpr uint64_t direction = 0x22C; //updated 1/11/2022
+	} movement;
 };
 
 namespace EFTStructs
@@ -231,9 +248,8 @@ public:
 	int          playercount;
 	bool		 refreshPlayerCount();
 
-
-	float getPlayerLooking(uint64_t player);
-	FVector getPlayerPos(uint64_t playerProfile);
+	float GetLookingAngle(uint64_t playerAddress);
+	FVector getBonePos(uint64_t playerAddress, int boneId);
 	bool setupPlayer(uint64_t playerAddress);
 
 	bool IsAiming(uint64_t instance);

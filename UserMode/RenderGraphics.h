@@ -26,16 +26,25 @@ public:
 	std::string name;
 	float x;
 	float y;
+	float z;
 	float size;
 	std::string color;
 	float health;
-	Blip(std::string name, float x, float y,std::string color, float size, float health = 0) {
+	float lookDirection;
+
+	Blip() {
+
+	}
+
+	Blip(std::string name, float x, float y, float z,std::string color, float size, float health = 0, float lookDirection = 0) {
 		this->name =  name;
 		this->x = x;
 		this->y = y;
+		this->z = z;
 		this->size = size;
 		this->color = color;
 		this->health = health;
+		this->lookDirection = lookDirection;
 	}
 };
 
@@ -45,7 +54,7 @@ class Radar {
 	int windowX;
 	int windowY;
 	int range;
-	Vector3 middle;
+	Blip centerBlip;
 	std::vector<Blip> blipList;
 	//vector<int> RenderList;
 
@@ -54,20 +63,20 @@ class Radar {
 			this->windowX = sizeX;
 			this->windowY = sizeY;
 			this->window = CreateGLWindow(sizeX, sizeY);
-			this->text = CreateGLText();
 			this->range = 200;
 		}
 
-	void setMiddle(Vector3 middle);
 	void setRange(int range);
 	void setColor(std::string color);
 	void drawFilledCircle(GLfloat x, GLfloat y, float size, std::string color);
 	void drawHollowCircle(GLfloat x, GLfloat y, float size, std::string color);
+	void drawLineByAngle(GLfloat x, GLfloat y, float angle, float size, std::string color);
 	void drawText(GLfloat x, GLfloat y, float size, std::string type);
-
-	void renderBlip(Blip blip);
-	void renderBlipName(Blip blip);
-	void createPlayerBlips(EFTPlayer player);
+	void clearBlips();
+	void renderBlip(Blip blip, bool rotate = true);
+	bool renderBlipName(Blip blip, bool rotate = true);
+	void drawBlank();
+	bool createPlayerBlips(EFTPlayer player, bool isLocal = false);
 	void createLootBlips(EFTLoot loot);
 	void drawRect(GLfloat x, GLfloat y, GLfloat length, GLfloat height, std::string color, float percent = 1.0, std::string alignment = "LEFT");
 	void drawHealthBar(GLfloat x, GLfloat y, float size, float percent, float yOffset = 10);

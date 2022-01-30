@@ -250,10 +250,10 @@ float lineDistance(Vector2 p1, Vector2 p2) {
 	return sqrt(pow(p1.x - p2.x, 2) + pow(p1.y - p2.y, 2));
 }
 
-Vector2 rotateAboutPoint(Vector2 point, float angle) {
+Vector2 rotateAboutZero(Vector2 point, float angle) {
 	Vector2 newPoint;
-	newPoint.x = point.x * cos(angle * (PI / 180)) - point.y * sin(angle * (PI / 180));
-	newPoint.y = point.y * cos(angle * (PI / 180)) + point.x * sin(angle * (PI / 180));
+	newPoint.x = cos(angle * 3.141592653 / 180) * point.x - sin(angle * 3.141592653 / 180) * point.y;
+	newPoint.y = cos(angle * 3.141592653 / 180) * point.y + sin(angle * 3.141592653 / 180) * point.x;
 	return newPoint;
 }
 
@@ -341,16 +341,14 @@ void Radar::drawLineByAngle(GLfloat x, GLfloat y, float angle, float size, std::
 void Radar::renderBlip(Blip blip, bool rotate) { //middle.y needs to be z val
 	//std::cout << "RENDER X: " << (blip.x - this->middle.x) / this->range << " Y: " << (blip.y - this->middle.y) / this->range << std::endl;
 	Vector2 renderPoint;
-	
+	renderPoint.x = (blip.x - this->centerBlip.x) / this->range;
+	renderPoint.y = (blip.y - this->centerBlip.y) / this->range;
+
 	if (rotate) {
-		renderPoint = rotateAboutPoint(
-			Vector2{ blip.x - centerBlip.x, blip.y - centerBlip.y},
+		renderPoint = rotateAboutZero(
+			Vector2{ renderPoint.x, renderPoint.y },
 			centerBlip.lookDirection
 		);
-	}
-	else {
-		renderPoint.x = (blip.x - this->centerBlip.x) / this->range;
-		renderPoint.y = (blip.y - this->centerBlip.y) / this->range;
 	}
 	if (blip.z - centerBlip.z > 5) {
 		this->drawTriangle(
@@ -361,8 +359,8 @@ void Radar::renderBlip(Blip blip, bool rotate) { //middle.y needs to be z val
 	}
 	else if (blip.z - centerBlip.z < -5) {
 		this->drawTriangle(
-			renderPoint.x / this->range,
-			renderPoint.y / this->range,
+			renderPoint.x,
+			renderPoint.y,
 			blip.size,
 			blip.color,
 			true);
@@ -398,15 +396,14 @@ bool Radar::renderBlipName(Blip blip, bool rotate) {
 	if (blip.name.compare("Marksman") == 0 || blip.name.compare("Assault") == 0) return false;
 
 	Vector2 renderPoint;
+	renderPoint.x = (blip.x - this->centerBlip.x) / this->range;
+	renderPoint.y = (blip.y - this->centerBlip.y) / this->range;
+
 	if (rotate) {
-		renderPoint = rotateAboutPoint(
-			Vector2{ blip.x - centerBlip.x, blip.y - centerBlip.y },
-			centerBlip.lookDirection
+		renderPoint = rotateAboutZero(
+			Vector2{ renderPoint.x, -renderPoint.y },
+			-centerBlip.lookDirection
 		);
-	}
-	else {
-		renderPoint.x = (blip.x - this->centerBlip.x) / this->range;
-		renderPoint.y = -(blip.y - this->centerBlip.y) / this->range;
 	}
 
 	drawText(
@@ -421,7 +418,7 @@ bool Radar::renderBlipName(Blip blip, bool rotate) {
 
 bool Radar::createPlayerBlips(EFTPlayer player, bool isLocal) {
 	if (isLocal) {
-		Blip blip = Blip(player.type, player.position.x, player.position.z, player.position.y, "GREEN", 10, 0,player.lookAngle);
+		Blip blip = Blip("", player.position.x, player.position.z, player.position.y, "WHITE", 5, 0, player.lookAngle);
 		this->centerBlip = blip;
 		//std::cout << centerBlip.x << " , " << centerBlip.y << std::endl;
 		blipList.emplace_back(blip);
@@ -516,10 +513,10 @@ void Radar::drawWindowTesting() {
 		//drawHollowCircle(0, 0, pointToPixel(1.0 * .5, this->windowX), "WHITE");
 
 		for (int i = 0; i < this->blipList.size(); i++) {
-			renderBlip(this->blipList[i], false);
+			renderBlip(this->blipList[i], true);
 		}
 		for (int i = 0; i < this->blipList.size(); i++) {
-			renderBlipName(this->blipList[i], false);
+			renderBlipName(this->blipList[i], true);
 		}
 
 		gltDeleteText(this->text);

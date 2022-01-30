@@ -1,7 +1,6 @@
 #include "UM-Memory.h"
 #include "GameSDK.h"
 #include "xorstr.hpp"
-#include <Eigen/Geometry>
 
 bool mfound = false;
 
@@ -2352,8 +2351,8 @@ bool EFTData::setupPlayer(uint64_t playerAddress) {
     int registrationDate = mem->Read<int>(playerInfo + this->offsets.information.registrationDate);
     int playerSide = mem->Read<int>(playerInfo + this->offsets.information.playerSide);
 
-    player.position = this->GetPosition(player.instance + this->offsets.Player.position);
-    player.headPos  = this->getBonePos(player.instance, Bones::HumanBase);//currently setting player.position to head position
+    //player.position = this->GetPosition(player.instance + this->offsets.Player.position);
+    player.position = this->getBonePos(player.instance, Bones::HumanBase);//currently setting player.position to head position
 
     if (playerName && registrationDate > 0) //controlled by an actual human
     {

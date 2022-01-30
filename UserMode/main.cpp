@@ -76,8 +76,8 @@ void gameLoop() {
 }
 int main()
 {
-	printf("PID: %d", process_id);
-	printf("Base Address: %Id", base_address);
+	//printf("PID: %d", process_id);
+	//printf("Base Address: %Id", base_address);
 	bool breakVal = false;
 	
 	auto gameName = skCrypt("EscapeFromTarkov.exe");
@@ -92,18 +92,18 @@ int main()
 	{
 		Radar myRadar = Radar::Radar(1280, 720);
 		myRadar.drawWindowTesting();
-		printf("GOD MOTHAFUCKIN DAAAAAAAAAAAMN");
+		printf(skCrypt("GOD MOTHAFUCKIN DAAAAAAAAAAAMN"));
 		Sleep(5000);
 	}
 	{
-		printf("Yes\n");
-		printf("PID: %d\n", process_id);
-		printf("Base Address: %Id\n", base_address);
+		//printf("Yes\n");
+		//printf("PID: %d\n", process_id);
+		//printf("Base Address: %Id\n", base_address);
 			
 		gameLoop();
 		breakVal = true;
 	}
-	std::cout << "CLOSING";
+	std::cout << skCrypt("CLOSING");
 	Sleep(10000);
 	return NULL;
 }
